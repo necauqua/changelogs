@@ -1,0 +1,22 @@
+name: Generate Forge Updates
+author: necauqua
+description: Renders the extracted changelog JSON into a Forge updates.json file
+inputs:
+  changelog:
+    description: Input changelog JSON file
+    required: true
+    default: changelog.json
+  filename:
+    description: Resulting JSON file name
+    required: true
+    default: updates.json
+  template:
+    description: JSON template file with predefined values etc.
+    required: false
+runs:
+  using: docker
+  image: ../Dockerfile.gen-forge-updates
+  args:
+    - ${{ inputs.changelog }}
+    - ${{ inputs.filename }}
+    - ${{ inputs.template }}

@@ -1,0 +1,13 @@
+[package]
+name = 'gen-forge-updates'
+version = '0.1.0'
+edition = '2021'
+publish = false
+
+[dependencies]
+anyhow = '1.0.68'
+reqwest = { version = '0.11.13', default-features = false, features = ['json', 'blocking', 'rustls-tls'] }
+serde = { version = '1.0.152', features = ['derive'] }
+serde_json = '1.0.91'
+
+render = { path = '../render' }

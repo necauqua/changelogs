@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "extract",
+    "render",
+    "gen-forge-updates",
+]

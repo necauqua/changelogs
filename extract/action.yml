@@ -1,0 +1,17 @@
+name: Extract Changelog
+author: necauqua
+description: Exctract changelog from approproately formatted git commit bodies
+inputs:
+  root-commit:
+    description: The commit from whose children the log will be extracted
+    required: false
+  filename:
+    description: Name of the file that will contain the generated JSON changelog
+    default: changelog.json
+    required: true
+runs:
+  using: docker
+  image: ../Dockerfile.extract
+  args:
+    - ${{ inputs.filename }}
+    - ${{ inputs.root-commit }}

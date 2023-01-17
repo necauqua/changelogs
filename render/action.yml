@@ -1,0 +1,43 @@
+name: Render Changelog
+author: necauqua
+description: Renders the extracted changelog JSON into markdown
+inputs:
+  changelog:
+    description: Input changelog JSON
+    required: true
+    default: changelog.json
+  tag-format:
+    description: Format of the release header
+    required: true
+    default: '[{tag}] {timestamp}'
+  date-format:
+    description: Format of the date used in tag format
+    required: true
+    default: '%F'
+  unreleased-header:
+    description: Unreleased header string
+    required: true
+    default: Unreleased ({short_hash})
+  filename:
+    description: Resulting markdown file name
+    required: true
+    default: changelog.md
+  only-last:
+    description: Set to true to only write the last changelog (unreleased or last release if unreleased is empty) without a header. Ignores the template and header settings
+    required: true
+    default: "false"
+  template:
+    description: Changelog template file
+    required: false
+runs:
+  using: docker
+  image: ../Dockerfile.render
+  args:
+    - ${{ inputs.changelog }}
+    - ${{ inputs.tag-format }}
+    - ${{ inputs.date-format }}
+    - ${{ inputs.unreleased-header }}
+    - ${{ inputs.filename }}
+    - ${{ inputs.only-last }}
+    - ${{ inputs.template }}
+
