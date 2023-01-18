@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use serde_json::{Map, Value};
 use std::{collections::HashMap, env::Args, fs::File};
 
 use serde::Deserialize;
@@ -45,8 +46,8 @@ pub fn run(mut args: Args) -> Result<()> {
     let data: Changelog = serde_json::from_reader(File::open(changelog_file)?)?;
 
     let mut result = match template {
-        None => HashMap::<String, HashMap<String, String>>::new(),
         Some(template) => serde_json::from_reader(File::open(template)?)?,
+        None => Map::new(),
     };
 
     let mut recommended = HashMap::new();
@@ -71,21 +72,27 @@ pub fn run(mut args: Args) -> Result<()> {
                 .or_insert_with(|| mod_version.to_owned());
 
             result
-                .entry(version.to_owned())
-                .or_default()
+                .entry(version)
+                .or_insert_with(|| Value::Object(Map::new()))
+                .as_object_mut()
+                .context("Template version value was not an object")?
                 .insert(mod_version.to_owned(), {
                     let mut section = String::new();
                     write_section(&mut section, &release.log)?;
-                    section
+                    Value::String(section)
                 });
         }
     }
 
-    let promos = result.entry("promos".into()).or_default();
+    let promos = result
+        .entry("promos")
+        .or_insert_with(|| Value::Object(Map::new()))
+        .as_object_mut()
+        .context("Template promos was not an object")?;
 
     for (mc_version, mod_version) in recommended {
-        promos.insert(format!("{mc_version}-recommended"), mod_version.clone());
-        promos.insert(format!("{mc_version}-latest"), mod_version);
+        promos.insert(format!("{mc_version}-recommended"), Value::String(mod_version.clone()));
+        promos.insert(format!("{mc_version}-latest"), Value::String(mod_version));
     }
 
     serde_json::to_writer(File::create(filename)?, &result)?;
