@@ -4,7 +4,14 @@ FROM rust:1.66-slim AS builder
 
 WORKDIR /build
 
-COPY . ./
+# cache the crates.io index thing
+RUN cargo search --limit 0
+
+# make a dumb program to cache deps
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release --locked && rm -r target/release
+
+COPY src src
 
 RUN cargo build --release --locked
 # --target x86_64-unknown-linux-musl

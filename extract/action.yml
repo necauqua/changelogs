@@ -11,7 +11,7 @@ inputs:
     required: true
 runs:
   using: docker
-  image: docker://ghcr.io/necauqua/changelogs@sha256:1d3974cb22f114886e2ae9caa720d434fc6e44687cd8b37ee58545e62c60ca3e
+  image: docker://ghcr.io/necauqua/changelogs@sha256:debe65fce57879ddd27cb7011910229580628e69c54be04ef243634475fa5f7c
   args:
     - extract
     - ${{ inputs.filename }}

@@ -39,15 +39,15 @@ fn get_versions() -> Result<Vec<String>> {
 pub fn run(mut args: Args) -> Result<()> {
     let changelog_file = args.next().unwrap();
     let filename = args.next().unwrap();
-    let template = args.next();
+    let template = args.next().unwrap();
 
     let mc_versions = get_versions()?;
 
     let data: Changelog = serde_json::from_reader(File::open(changelog_file)?)?;
 
-    let mut result = match template {
-        Some(template) => serde_json::from_reader(File::open(template)?)?,
-        None => Map::new(),
+    let mut result = match &*template {
+        "" => Map::new(),
+        template => serde_json::from_reader(File::open(template)?)?,
     };
 
     let mut recommended = HashMap::new();

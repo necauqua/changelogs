@@ -181,7 +181,11 @@ fn load_changelog(root_commit: Option<String>) -> Result<Changelog> {
 
 pub fn run(mut args: Args) -> Result<()> {
     let filename = args.next().unwrap();
-    let root_commit = args.next();
+    let root_commit = args.next().unwrap();
+    let root_commit = match &*root_commit { // ugh
+        "" => None,
+        _ => Some(root_commit),
+    };
 
     serde_json::to_writer(File::create(filename)?, &load_changelog(root_commit)?)?;
 

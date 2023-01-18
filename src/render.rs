@@ -66,7 +66,7 @@ pub fn run(mut args: Args) -> Result<()> {
     let unreleased_header = args.next().unwrap();
     let filename = args.next().unwrap();
     let only_last = args.next().unwrap() == "true";
-    let template_file = args.next();
+    let template = args.next().unwrap();
 
     let data: Changelog = serde_json::from_reader(File::open(changelog_file)?)?;
 
@@ -100,16 +100,11 @@ pub fn run(mut args: Args) -> Result<()> {
         )?;
     }
 
-    std::fs::write(
-        filename,
-        match template_file {
-            None => result,
-            Some(template_file) => {
-                let template = std::fs::read_to_string(template_file)?;
-                template.replace("{changelog}", &result)
-            }
-        },
-    )?;
+    let result = match &*template {
+        "" => result,
+        _ => std::fs::read_to_string(template)?.replace("{changelog}", &result),
+    };
+    std::fs::write(filename, result)?;
 
     Ok(())
 }
