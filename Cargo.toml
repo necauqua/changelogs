@@ -1,7 +1,16 @@
-[workspace]
+[package]
+name = 'changelogs'
+version = '0.1.0'
+edition = '2021'
+publish = false
 
-members = [
-    "extract",
-    "render",
-    "gen-forge-updates",
-]
+[dependencies]
+anyhow = '1.0.68'
+chrono = { version = '0.4.23', default-features = false, features = ['alloc'] }
+reqwest = { version = '0.11.13', default-features = false, features = [
+    'json',
+    'blocking',
+    'rustls-tls',
+] }
+serde = { version = '1.0.152', features = ['derive'] }
+serde_json = '1.0.91'

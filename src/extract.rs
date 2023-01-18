@@ -1,8 +1,32 @@
-use std::{collections::BTreeMap, fs::File, iter::once, process::Command};
-
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
+use std::{collections::BTreeMap, env::Args, fs::File, iter::once, process::Command};
 
-use extract::*;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Section {
+    pub name: String,
+    pub changes: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Changeset {
+    pub hash: String,
+    pub timestamp: i64,
+    pub sections: Vec<Section>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Release {
+    pub tag: String,
+    #[serde(flatten)]
+    pub log: Changeset,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Changelog {
+    pub unreleased: Changeset,
+    pub releases: Vec<Release>,
+}
 
 const HEAD: &str = "HEAD";
 
@@ -155,9 +179,7 @@ fn load_changelog(root_commit: Option<String>) -> Result<Changelog> {
     }
 }
 
-fn main() -> Result<()> {
-    let mut args = std::env::args();
-    let _exe = args.next().unwrap();
+pub fn run(mut args: Args) -> Result<()> {
     let filename = args.next().unwrap();
     let root_commit = args.next();
 

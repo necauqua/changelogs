@@ -1,23 +1,23 @@
-use std::{collections::HashMap, fs::File};
-
 use anyhow::{Context, Result};
+use std::{collections::HashMap, env::Args, fs::File};
+
 use serde::Deserialize;
 
-use render::{extract::Changelog, write_section};
-
-#[derive(Debug, Deserialize)]
-struct Version {
-    id: String,
-    #[serde(rename = "type")]
-    version_type: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct VersionManifest {
-    versions: Vec<Version>,
-}
+use crate::{extract::Changelog, render::write_section};
 
 fn get_versions() -> Result<Vec<String>> {
+    #[derive(Debug, Deserialize)]
+    struct Version {
+        id: String,
+        #[serde(rename = "type")]
+        version_type: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct VersionManifest {
+        versions: Vec<Version>,
+    }
+
     let res =
         reqwest::blocking::get("https://launchermeta.mojang.com/mc/game/version_manifest.json")?
             .json::<VersionManifest>()?
@@ -35,9 +35,7 @@ fn get_versions() -> Result<Vec<String>> {
     Ok(res)
 }
 
-fn main() -> Result<()> {
-    let mut args = std::env::args();
-    let _exe = args.next().unwrap();
+pub fn run(mut args: Args) -> Result<()> {
     let changelog_file = args.next().unwrap();
     let filename = args.next().unwrap();
     let template = args.next();

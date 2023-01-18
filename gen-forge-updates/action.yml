@@ -15,8 +15,9 @@ inputs:
     required: false
 runs:
   using: docker
-  image: ../Dockerfile.gen-forge-updates
+  image: ../Dockerfile
   args:
+    - gen-forge-updates
     - ${{ inputs.changelog }}
     - ${{ inputs.filename }}
     - ${{ inputs.template }}

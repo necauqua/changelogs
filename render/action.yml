@@ -31,8 +31,9 @@ inputs:
     required: false
 runs:
   using: docker
-  image: ../Dockerfile.render
+  image: ../Dockerfile
   args:
+    - render
     - ${{ inputs.changelog }}
     - ${{ inputs.tag-format }}
     - ${{ inputs.date-format }}

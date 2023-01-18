@@ -1,9 +1,20 @@
-use std::{fmt::Write, fs::File};
-
+use crate::extract::{Changelog, Changeset};
 use anyhow::{Context, Result};
+use std::{env::Args, fmt::Write, fs::File};
 
-use extract::{Changelog, Changeset};
-use render::write_section;
+pub fn write_section(result: &mut String, changeset: &Changeset) -> Result<()> {
+    for section in &changeset.sections {
+        let mut name = section.name.clone();
+        if !name.is_empty() {
+            name[..1].make_ascii_uppercase();
+        }
+        writeln!(result, "### {}", name)?;
+        for change in &section.changes {
+            writeln!(result, "  - {change}")?;
+        }
+    }
+    Ok(())
+}
 
 fn format_header(
     header_template: &str,
@@ -48,9 +59,7 @@ fn write_full_section(
     Ok(())
 }
 
-fn main() -> Result<()> {
-    let mut args = std::env::args();
-    let _exe = args.next().unwrap();
+pub fn run(mut args: Args) -> Result<()> {
     let changelog_file = args.next().unwrap();
     let tag_format = args.next().unwrap();
     let date_format = args.next().unwrap();
