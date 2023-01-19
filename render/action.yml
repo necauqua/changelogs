@@ -9,7 +9,7 @@ inputs:
   tag-format:
     description: Format of the release header
     required: true
-    default: '[{tag}] {timestamp}'
+    default: '[[[{tag}](https://github.com/${{ github.repository }}/tree/{hash})]] {timestamp}'
   date-format:
     description: Format of the date used in tag format
     required: true
@@ -17,7 +17,7 @@ inputs:
   unreleased-header:
     description: Unreleased header string
     required: true
-    default: Unreleased ({short_hash})
+    default: Unreleased ([{short_hash}](https://github.com/${{ github.repository }}/tree/{hash}))
   filename:
     description: Resulting markdown file name
     required: true
