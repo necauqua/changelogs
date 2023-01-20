@@ -9,7 +9,7 @@ inputs:
   tag-format:
     description: Format of the release header
     required: true
-    default: '[[[{tag}](https://github.com/${{ github.repository }}/tree/{hash})]] {timestamp}'
+    default: '[[[{tag}](https://github.com/${{ github.repository }}/tree/{tag})]] {timestamp}'
   date-format:
     description: Format of the date used in tag format
     required: true
