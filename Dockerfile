@@ -19,8 +19,7 @@ RUN cargo build --release --locked --target x86_64-unknown-linux-musl
 
 FROM alpine/git
 
-RUN git config --global safe.directory '*'
-
 COPY --from=builder /build/target/x86_64-unknown-linux-musl/release/changelogs /bin/changelogs
+COPY entrypoint.sh /bin
 
-ENTRYPOINT ["/bin/changelogs"]
+ENTRYPOINT ["/bin/entrypoint.sh"]

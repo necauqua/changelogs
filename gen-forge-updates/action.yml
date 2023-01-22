@@ -15,7 +15,7 @@ inputs:
     required: false
 runs:
   using: docker
-  image: docker://ghcr.io/necauqua/changelogs@sha256:d82b558f7b97f1755ff6c86372f313cc552edcc44512c262d5a9d7228716abc4
+  image: docker://ghcr.io/necauqua/changelogs@sha256:406b9f2b327e02cf2bf4805299bc1065db1d6bd0ba2f286335835346ef0a2415
   args:
     - gen-forge-updates
     - ${{ inputs.changelog }}
