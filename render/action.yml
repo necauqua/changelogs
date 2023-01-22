@@ -27,7 +27,7 @@ inputs:
     description: Changelog template file
 runs:
   using: docker
-  image: docker://ghcr.io/necauqua/changelogs@sha256:52f2311dab371c8e1cea2c5a34064c0b1d2843e0de85b0ce72ab81c052c089ca
+  image: docker://ghcr.io/necauqua/changelogs@sha256:d82b558f7b97f1755ff6c86372f313cc552edcc44512c262d5a9d7228716abc4
   args:
     - render
     - ${{ inputs.changelog }}

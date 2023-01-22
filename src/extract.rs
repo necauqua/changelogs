@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, env::Args, fs::File, iter::once, process::Command};
 
@@ -31,20 +31,21 @@ pub struct Changelog {
 const HEAD: &str = "HEAD";
 
 fn git(args: &[&str]) -> Result<Vec<String>> {
-    let stdout = Command::new("git")
+    let result = Command::new("git")
         .args(args)
         .output()
-        .context("Failed to run git")?
-        .stdout;
-    if stdout.is_empty() {
-        Ok(vec![])
-    } else {
-        Ok(String::from_utf8(stdout)?
-            .trim()
-            .split('\n')
-            .map(ToOwned::to_owned)
-            .collect())
+        .context("Failed to run git")?;
+    if !result.stderr.is_empty() {
+        bail!("Git command failed: {}", String::from_utf8_lossy(&result.stderr));
     }
+    if result.stdout.is_empty() { // "".split('\n') will return [""]
+        return Ok(vec![])
+    }
+    Ok(String::from_utf8(result.stdout)?
+        .trim()
+        .split('\n')
+        .map(ToOwned::to_owned)
+        .collect())
 }
 
 fn get_commit_timestamp(refname: &str) -> Result<i64> {
