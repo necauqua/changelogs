@@ -13,7 +13,7 @@ inputs:
     default: '%F'
   issue-format:
     description: If non-empty, replaces all occurences of `#<number>` with a link with given format
-    default: 'https://github.com/${{ github.repository }}/issues/{number}'
+    default: '[#{number}](https://github.com/${{ github.repository }}/issues/{number})'
   unreleased-header:
     description: Unreleased header string
     default: Unreleased ([{short_hash}](https://github.com/${{ github.repository }}/tree/{hash}))
