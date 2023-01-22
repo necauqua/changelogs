@@ -1,8 +1,9 @@
 use crate::extract::{Changelog, Changeset};
 use anyhow::{Context, Result};
+use lazy_regex::regex_replace_all;
 use std::{env::Args, fmt::Write, fs::File};
 
-pub fn write_section(result: &mut String, changeset: &Changeset) -> Result<()> {
+pub fn write_section(result: &mut String, changeset: &Changeset, issue_format: &str) -> Result<()> {
     for section in &changeset.sections {
         let mut name = section.name.clone();
         if !name.is_empty() {
@@ -10,6 +11,11 @@ pub fn write_section(result: &mut String, changeset: &Changeset) -> Result<()> {
         }
         writeln!(result, "### {}", name)?;
         for change in &section.changes {
+            let change = match issue_format {
+                "" => change.into(),
+                _ => regex_replace_all!("#(\\d+)", change, |_, n| issue_format
+                    .replace("{number}", n)),
+            };
             writeln!(result, "  - {change}")?;
         }
     }
@@ -44,6 +50,7 @@ fn write_full_section(
     result: &mut String,
     header_template: &str,
     date_format: &str,
+    issue_format: &str,
     changeset: &Changeset,
     tag: Option<&str>,
 ) -> Result<()> {
@@ -53,7 +60,7 @@ fn write_full_section(
             "## {}",
             format_header(header_template, date_format, changeset, tag)?
         )?;
-        write_section(result, changeset)?;
+        write_section(result, changeset, issue_format)?;
         writeln!(result)?;
     }
     Ok(())
@@ -63,6 +70,7 @@ pub fn run(mut args: Args) -> Result<()> {
     let changelog_file = args.next().unwrap();
     let tag_format = args.next().unwrap();
     let date_format = args.next().unwrap();
+    let issue_format = args.next().unwrap();
     let unreleased_header = args.next().unwrap();
     let filename = args.next().unwrap();
     let only_last = args.next().unwrap() == "true";
@@ -74,9 +82,9 @@ pub fn run(mut args: Args) -> Result<()> {
 
     if only_last {
         if !data.unreleased.sections.is_empty() {
-            write_section(&mut result, &data.unreleased)?;
+            write_section(&mut result, &data.unreleased, &issue_format)?;
         } else if let Some(release) = data.releases.first() {
-            write_section(&mut result, &release.log)?;
+            write_section(&mut result, &release.log, &issue_format)?;
         }
         std::fs::write(filename, result)?;
         return Ok(());
@@ -86,6 +94,7 @@ pub fn run(mut args: Args) -> Result<()> {
         &mut result,
         &unreleased_header,
         &date_format,
+        &issue_format,
         &data.unreleased,
         None,
     )?;
@@ -95,6 +104,7 @@ pub fn run(mut args: Args) -> Result<()> {
             &mut result,
             &tag_format,
             &date_format,
+            &issue_format,
             &release.log,
             Some(&release.tag),
         )?;

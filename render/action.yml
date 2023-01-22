@@ -4,39 +4,36 @@ description: Renders the extracted changelog JSON into markdown
 inputs:
   changelog:
     description: Input changelog JSON
-    required: true
     default: changelog.json
   tag-format:
     description: Format of the release header
-    required: true
     default: '[[[{tag}](https://github.com/${{ github.repository }}/tree/{tag})]] {timestamp}'
   date-format:
     description: Format of the date used in tag format
-    required: true
     default: '%F'
+  issue-format:
+    description: If non-empty, replaces all occurences of `#<number>` with a link with given format
+    default: 'https://github.com/${{ github.repository }}/issues/{number}'
   unreleased-header:
     description: Unreleased header string
-    required: true
     default: Unreleased ([{short_hash}](https://github.com/${{ github.repository }}/tree/{hash}))
   filename:
     description: Resulting markdown file name
-    required: true
     default: changelog.md
   only-last:
     description: Set to true to only write the last changelog (unreleased or last release if unreleased is empty) without a header. Ignores the template and header settings
-    required: true
     default: "false"
   template:
     description: Changelog template file
-    required: false
 runs:
   using: docker
-  image: docker://ghcr.io/necauqua/changelogs@sha256:debe65fce57879ddd27cb7011910229580628e69c54be04ef243634475fa5f7c
+  image: docker://ghcr.io/necauqua/changelogs@sha256:52f2311dab371c8e1cea2c5a34064c0b1d2843e0de85b0ce72ab81c052c089ca
   args:
     - render
     - ${{ inputs.changelog }}
     - ${{ inputs.tag-format }}
     - ${{ inputs.date-format }}
+    - ${{ inputs.issue-format }}
     - ${{ inputs.unreleased-header }}
     - ${{ inputs.filename }}
     - ${{ inputs.only-last }}

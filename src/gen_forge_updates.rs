@@ -78,7 +78,7 @@ pub fn run(mut args: Args) -> Result<()> {
                 .context("Template version value was not an object")?
                 .insert(mod_version.to_owned(), {
                     let mut section = String::new();
-                    write_section(&mut section, &release.log)?;
+                    write_section(&mut section, &release.log, "")?;
                     Value::String(section)
                 });
         }
