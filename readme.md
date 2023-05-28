@@ -2,10 +2,13 @@
 
 A set of (relatively) simple GitHub actions for changelog generation from git commit bodies.
 
-- `necauqua/changelogs/extract@v1` - parses git commit bodies and produces a JSON file with changelog data.
+- `necauqua/changelogs/extract@v1` - parses git commit bodies and produces a JSON file with changelog data. Absolute overkill, look at that thing :)
 
-  It loads bodies of git commits between tags and looks for patterns like the below in them:
+  It looks for tags that start with `v`, the `main` branch and any branches that start with `backport/`.
 
+  Out of these it builds a tree structure, with tags being releases and branches being unreleased trunks.
+
+  Then it reads bodies of git commits between every tag/branch and it's parent tag/root and looks for the pattern like below in them:
   ```
   ${section1}:
     - ${entry1}
@@ -19,40 +22,34 @@ A set of (relatively) simple GitHub actions for changelog generation from git co
     - ..
   ```
 
-  Sections are then merged by their lowercase names and sorted.
-  Common sections are *added*, *changed*, *fixed*, *security* etc.
-  Entries are just some changes.
+  Sections from different commits are then merged by their lowercase names and sorted.
+  Common sections are *added*, *changed*, *fixed*, *security* etc. Entries are just some changes.
+
+  The top-level list of per tag changes is sorted so be newest first.
 
   <details>
   <summary>The format example (not a schema cuz im lazy and this is for personal use anyway lol)</summary>
 
   ```json
-   {
-     "unreleased": {
-        "hash": "hash of HEAD",
-        "timestamp": HEAD commit unix timestamp,
+   [
+      {
+        "is_release": "true if it was a tag",
+        "name": "git short ref name, e.g. name of the tag or of the branch",
+        "hash": "hash of the git commit (not the tag object)",
+        "timestamp": "the git timestamp in seconds of the annotated tag if present, or of the commit otherwise",
         "sections": [
           {
-            "name": "lowercased section name, e.g. 'changed'",
-            "changes": [
-              "some change",
-              "some change 2",
+            "name": "section name, e.g. 'added'",
+            "entries": [
+              "a line describing some change, e.g. 'added herobrine', see the pattern above",
               ..
             ]
           },
           ..
         ]
-     },
-     "releases": [
-        {
-          "tag": "the tag ref with `refs/tags/` prefix stripped",
-          "hash": "hash of the tagged *commit* (not the tag object)",
-          "timestamp": "unix timestamp of the commit/annotated tag",
-          "sections": [..]
-        },
-        ..
-     ]
-   }
+      },
+      ..
+   ]
   ```
   </details>
 

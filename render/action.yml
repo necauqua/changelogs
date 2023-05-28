@@ -7,7 +7,7 @@ inputs:
     default: changelog.json
   tag-format:
     description: Format of the release header
-    default: '[[[{tag}](https://github.com/${{ github.repository }}/tree/{tag})]] {timestamp}'
+    default: '[[[{name}](https://github.com/${{ github.repository }}/releases/{name})]] {timestamp}'
   date-format:
     description: Format of the date used in tag format
     default: '%F'
@@ -16,7 +16,7 @@ inputs:
     default: '[#{number}](https://github.com/${{ github.repository }}/issues/{number})'
   unreleased-header:
     description: Unreleased header string
-    default: Unreleased ([{short_hash}](https://github.com/${{ github.repository }}/tree/{hash}))
+    default: Unreleased ([{name}](https://github.com/${{ github.repository }}/tree/{hash}))
   filename:
     description: Resulting markdown file name
     default: changelog.md
@@ -27,15 +27,14 @@ inputs:
     description: Changelog template file
 runs:
   using: docker
-  image: docker://ghcr.io/necauqua/changelogs@sha256:406b9f2b327e02cf2bf4805299bc1065db1d6bd0ba2f286335835346ef0a2415
+  image: docker://ghcr.io/necauqua/changelogs@sha256:2880e15524b50e1a928356eec85cc00b9288fb50bb0191abd08f8db58abe96d3
   args:
+    - ${{ inputs.filename }}
     - render
     - ${{ inputs.changelog }}
     - ${{ inputs.tag-format }}
     - ${{ inputs.date-format }}
     - ${{ inputs.issue-format }}
     - ${{ inputs.unreleased-header }}
-    - ${{ inputs.filename }}
     - ${{ inputs.only-last }}
     - ${{ inputs.template }}
-

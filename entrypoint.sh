@@ -3,4 +3,7 @@
 # ugh wtf is this
 git config --global --add safe.directory '*'
 
-/bin/changelogs "$@"
+# first arg is always the output file
+output=$1
+shift
+/bin/changelogs "$@" > $output

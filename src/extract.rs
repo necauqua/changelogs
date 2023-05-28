@@ -1,6 +1,13 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
+
+use git2::Repository;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, env::Args, fs::File, iter::once, process::Command};
+use std::{
+    collections::{BTreeMap, HashSet},
+    eprintln, format,
+    io::stdout,
+    iter::repeat,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Section {
@@ -9,186 +16,153 @@ pub struct Section {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Changeset {
+pub struct Change {
+    pub is_release: bool,
+    pub name: String,
     pub hash: String,
     pub timestamp: i64,
     pub sections: Vec<Section>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Release {
-    pub tag: String,
-    #[serde(flatten)]
-    pub log: Changeset,
-}
+fn load_changelog(repo: Repository, root: Option<&str>) -> Result<Vec<Change>> {
+    // fail early on root revparse
+    let root = root
+        .map(|r| repo.revparse_single(r).map(|r| r.id()))
+        .transpose()?;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Changelog {
-    pub unreleased: Changeset,
-    pub releases: Vec<Release>,
-}
+    let mut interesting_refs = vec![];
+    let mut vtagged_commits = HashSet::new();
 
-const HEAD: &str = "HEAD";
+    // zips are to avoid checking the refname prefix everytime if we know what
+    // iterator yields vtags
+    let reference_iter = repo
+        .references_glob("refs/heads/main")?
+        .zip(repeat(false))
+        .chain(
+            repo.references_glob("refs/heads/backport/*")?
+                .zip(repeat(false)),
+        )
+        .chain(repo.references_glob("refs/tags/v*")?.zip(repeat(true)));
 
-fn git(args: &[&str]) -> Result<Vec<String>> {
-    let result = Command::new("git")
-        .args(args)
-        .output()
-        .context("Failed to run git")?;
-    if !result.stderr.is_empty() {
-        bail!("Git command failed: {}", String::from_utf8_lossy(&result.stderr));
-    }
-    if result.stdout.is_empty() { // "".split('\n') will return [""]
-        return Ok(vec![])
-    }
-    Ok(String::from_utf8(result.stdout)?
-        .trim()
-        .split('\n')
-        .map(ToOwned::to_owned)
-        .collect())
-}
+    // a separate loop to fully populate vtagged_commits set before the next one
+    for (reference, is_vtag) in reference_iter {
+        let reference = reference?;
 
-fn get_commit_timestamp(refname: &str) -> Result<i64> {
-    Ok(git(&[
-        "show",
-        "-s",
-        "--format=%ct",
-        &format!("{refname}^{{commit}}"),
-    ])?
-    .get(0)
-    .context("Failed to get git commit timestamp")?
-    .parse()?)
-}
+        if let Some((name, commit)) = reference.name().zip(reference.peel_to_commit().ok()) {
+            let id = commit.id();
 
-fn get_commit_hash(refname: &str) -> Result<String> {
-    git(&["rev-list", "-n1", refname])?
-        .into_iter()
-        .next()
-        .context("Failed to get commit hash")
-}
-
-fn get_and_merge_sections(start_ref: Option<&str>, end_ref: Option<&str>) -> Result<Vec<Section>> {
-    let mut cmd = vec!["log", "--reverse", "--format=%b"];
-    cmd.extend(start_ref);
-    let end_ref = end_ref.map(|end_ref| format!("^{end_ref}"));
-    cmd.extend(end_ref.as_deref());
-
-    let mut log = BTreeMap::<_, Vec<String>>::new();
-    let mut current = None;
-
-    for line in git(&cmd)? {
-        if let Some(line) = line.strip_suffix(':') {
-            current = Some(log.entry(line.to_lowercase()).or_default());
-        } else if let Some(line) = line.strip_prefix("  - ") {
-            current.as_mut()
-                .with_context(|| format!("Malformed commit changelog, a section entry without defined section: {line}"))?
-                .push(line.to_owned());
-        }
-    }
-    Ok(log
-        .into_iter()
-        .map(|(name, changes)| Section { name, changes })
-        .collect())
-}
-
-fn load_changelog(root_commit: Option<String>) -> Result<Changelog> {
-    let tags_with_dates: Vec<_> = git(&{
-        let mut cmd = vec![
-            "for-each-ref",
-            "--merged",
-            HEAD,
-            "--sort=-creatordate",
-            "--format",
-            "%(refname)|%(creatordate:unix)",
-            "refs/tags",
-        ];
-        for root_commit in &root_commit {
-            cmd.extend(["--contains", root_commit]);
-        }
-        cmd
-    })?
-    .into_iter()
-    .map(|line| {
-        let err_msg = "expected git to return info in our format";
-        let mut parts = line.split('|');
-        let refname = parts.next().expect(err_msg);
-        let creatordate: i64 = parts
-            .next()
-            .and_then(|line| line.parse().ok())
-            .expect(err_msg);
-        (refname.to_owned(), creatordate)
-    })
-    .collect();
-
-    match tags_with_dates.first() {
-        None => {
-            // no tags -> everything is unreleased
-            Ok(Changelog {
-                unreleased: Changeset {
-                    timestamp: get_commit_timestamp(HEAD)?,
-                    hash: get_commit_hash(HEAD)?,
-                    sections: get_and_merge_sections(Some(HEAD), root_commit.as_deref())?,
-                },
-                releases: vec![],
-            })
-        }
-        Some((last_tag, _)) => {
-            let unreleased = Changeset {
-                hash: get_commit_hash(HEAD)?,
-                timestamp: get_commit_timestamp(HEAD)?,
-                sections: get_and_merge_sections(Some(HEAD), Some(last_tag))?,
+            let tag_time = if is_vtag {
+                reference
+                    .peel_to_tag()
+                    .ok() // ignore non-annotated tags or other errors
+                    .and_then(|t| t.tagger().map(|t| t.when()))
+            } else {
+                None
             };
+            let time = tag_time.unwrap_or_else(|| commit.time()).seconds();
 
-            // we need an explicit root so that
-            // we can always pair it with the last
-            // tag in the iter concatenation below
-            let root = match root_commit {
-                Some(root_commit) => root_commit,
-                None => git(&["rev-list", "--max-parents=0", HEAD])?
-                    .into_iter()
-                    .next()
-                    .context("Failed to get the root commit of the repository")?,
-            };
+            vtagged_commits.insert(id);
+            interesting_refs.push((id, name.to_owned(), time, is_vtag));
+        }
+    }
 
-            let mut releases = vec![];
+    let mut changes = vec![];
 
-            let end_refs = tags_with_dates
-                .iter()
-                .skip(1)
-                .map(|(next_ref, _)| next_ref)
-                .chain(once(&root));
+    let mut walker = repo.revwalk()?;
 
-            for ((tag, timestamp), next_ref) in tags_with_dates.iter().zip(end_refs) {
-                let sections = get_and_merge_sections(Some(tag), Some(next_ref))?;
-                if sections.is_empty() {
-                    continue;
+    'outer: for (id, refname, timestamp, is_vtag) in interesting_refs {
+        walker.reset()?;
+
+        walker.push(id)?;
+        if let Some(root) = root {
+            walker.hide(root)?;
+        }
+        walker.simplify_first_parent()?;
+
+        let mut sections = BTreeMap::<_, Vec<String>>::new();
+        let mut current_section = None;
+
+        // walk up the ancestors until we hit another tag
+        let mut first = true;
+        for ancestor in &mut walker {
+            let ancestor = ancestor?;
+
+            if first {
+                first = false;
+
+                // forget tagged heads completely, to avoid duplication
+                if !is_vtag && vtagged_commits.contains(&ancestor) {
+                    continue 'outer;
                 }
-                let log = Changeset {
-                    hash: get_commit_hash(tag)?,
-                    timestamp: *timestamp,
-                    sections,
-                };
-                let tag = tag.strip_prefix("refs/tags/").unwrap_or(tag).to_owned();
-                releases.push(Release { tag, log });
+            } else if vtagged_commits.contains(&ancestor) {
+                // finished walking up, not on first as that would've hit itself
+                break;
             }
 
-            Ok(Changelog {
-                unreleased,
-                releases,
-            })
+            // and finally add the commit body log to current set
+            if let Some(body) = repo.find_commit(ancestor)?.body() {
+                for line in body.split('\n') {
+                    if let Some(line) = line.strip_suffix(':') {
+                        current_section = Some(sections.entry(line.to_lowercase()).or_default());
+                    } else if let Some(line) = line.strip_prefix("  - ") {
+                        current_section.as_mut()
+                            .with_context(|| format!("Malformed commit changelog, a section entry without defined section: {line}"))?
+                            .push(line.to_owned());
+                    }
+                }
+            }
         }
+
+        fn short(refname: &str, is_vtag: bool) -> &str {
+            let prefix = match is_vtag {
+                true => "refs/tags/",
+                false => "refs/heads/",
+            };
+            refname.strip_prefix(prefix).unwrap_or(refname)
+        }
+
+        if sections.is_empty() {
+            // if there was no commits then the ref was past the explicit root
+            if !first {
+                eprintln!("skipping empty change {}", short(&refname, is_vtag));
+            }
+            continue;
+        }
+
+        let sections = sections
+            .into_iter()
+            .map(|(name, changes)| Section { name, changes })
+            .collect();
+
+        changes.push(Change {
+            is_release: is_vtag,
+            name: short(&refname, is_vtag).to_owned(),
+            hash: id.to_string(),
+            timestamp,
+            sections,
+        });
     }
+
+    changes.sort_unstable_by_key(|change| -change.timestamp);
+
+    Ok(changes)
 }
 
-pub fn run(mut args: Args) -> Result<()> {
-    let filename = args.next().unwrap();
-    let root_commit = args.next().unwrap();
-    let root_commit = match &*root_commit { // ugh
-        "" => None,
-        _ => Some(root_commit),
-    };
+#[derive(Debug, clap::Parser)]
+pub struct Args {
+    /// The commit starting from the children of which the log will be
+    /// extracted. If not specified, the log will be extracted from the root
+    /// commit of the repository. Empty string is treated as no value
+    /// specified (a GitHub Actions special).
+    root_commit: Option<String>,
+}
 
-    serde_json::to_writer(File::create(filename)?, &load_changelog(root_commit)?)?;
+pub fn run(args: Args) -> Result<()> {
+    let root = args.root_commit.filter(|c| !c.is_empty());
+
+    let changelog = load_changelog(Repository::open_from_env()?, root.as_deref())?;
+
+    serde_json::to_writer(stdout(), &changelog)?;
 
     Ok(())
 }
