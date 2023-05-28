@@ -6,4 +6,4 @@ git config --global --add safe.directory '*'
 # first arg is always the output file
 output=$1
 shift
-/bin/changelogs "$@" > $output
+/bin/changelogs "$@" | tee $output

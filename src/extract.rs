@@ -33,13 +33,19 @@ fn load_changelog(repo: Repository, root: Option<&str>) -> Result<Vec<Change>> {
     let mut interesting_refs = vec![];
     let mut vtagged_commits = HashSet::new();
 
+    let head_prefix = if std::env::var("CI").is_ok() {
+        "refs/remotes/origin/"
+    } else {
+        "refs/heads/"
+    };
+
     // zips are to avoid checking the refname prefix everytime if we know what
     // iterator yields vtags
     let reference_iter = repo
-        .references_glob("refs/heads/main")?
+        .references_glob(&format!("{head_prefix}main"))?
         .zip(repeat(false))
         .chain(
-            repo.references_glob("refs/heads/backport/*")?
+            repo.references_glob(&format!("{head_prefix}backport/*"))?
                 .zip(repeat(false)),
         )
         .chain(repo.references_glob("refs/tags/v*")?.zip(repeat(true)));
@@ -111,10 +117,10 @@ fn load_changelog(repo: Repository, root: Option<&str>) -> Result<Vec<Change>> {
             }
         }
 
-        fn short(refname: &str, is_vtag: bool) -> &str {
+        fn short<'a>(refname: &'a str, head_prefix: &str, is_vtag: bool) -> &'a str {
             let prefix = match is_vtag {
                 true => "refs/tags/",
-                false => "refs/heads/",
+                false => head_prefix,
             };
             refname.strip_prefix(prefix).unwrap_or(refname)
         }
@@ -122,7 +128,10 @@ fn load_changelog(repo: Repository, root: Option<&str>) -> Result<Vec<Change>> {
         if sections.is_empty() {
             // if there was no commits then the ref was past the explicit root
             if !first {
-                eprintln!("skipping empty change {}", short(&refname, is_vtag));
+                eprintln!(
+                    "skipping empty change {}",
+                    short(&refname, head_prefix, is_vtag)
+                );
             }
             continue;
         }
@@ -134,7 +143,7 @@ fn load_changelog(repo: Repository, root: Option<&str>) -> Result<Vec<Change>> {
 
         changes.push(Change {
             is_release: is_vtag,
-            name: short(&refname, is_vtag).to_owned(),
+            name: short(&refname, head_prefix, is_vtag).to_owned(),
             hash: id.to_string(),
             timestamp,
             sections,
