@@ -50,8 +50,8 @@ fn load_changelog(repo: Repository, root: Option<&str>) -> Result<Vec<Change>> {
 
         if let Some((name, commit)) = reference.name().zip(reference.peel_to_commit().ok()) {
             let id = commit.id();
-
             let tag_time = if is_vtag {
+                vtagged_commits.insert(id);
                 reference
                     .peel_to_tag()
                     .ok() // ignore non-annotated tags or other errors
@@ -60,8 +60,6 @@ fn load_changelog(repo: Repository, root: Option<&str>) -> Result<Vec<Change>> {
                 None
             };
             let time = tag_time.unwrap_or_else(|| commit.time()).seconds();
-
-            vtagged_commits.insert(id);
             interesting_refs.push((id, name.to_owned(), time, is_vtag));
         }
     }
